@@ -1,6 +1,12 @@
 #define LUA_LIB
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "lua.h"
 #include "lauxlib.h"
+#ifdef __cplusplus
+}
+#endif
 
 #define LON_IMPLEMENTATION
 #define LON_LUA_API
@@ -55,7 +61,7 @@ static int Ldump_option(lua_State *L) {
 }
 
 static int Ldump_new(lua_State *L) {
-    lonL_Dumper *D = lua_newuserdata(L, sizeof(lonL_Dumper));
+    lonL_Dumper *D = (lonL_Dumper*)lua_newuserdata(L, sizeof(lonL_Dumper));
     D->L = L;
     luaL_setmetatable(L, LON_DUMPER);
     lon_initdumper(&D->D);

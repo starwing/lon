@@ -274,8 +274,8 @@ LON_NS_BEGIN
 
 typedef struct lonL_LuaState {
     lua_State *L;
-    int size;
-    int capacity;
+    size_t size;
+    size_t capacity;
 } lonL_LuaState;
 
 LON_API void lon_setluastate(lon_Loader *L, lua_State *LS)
@@ -374,12 +374,14 @@ static void lonD_pushtable(lon_Dumper *D, lua_State *L, int idx, int t) {
     while (lua_next(L, idx)) {
         const void *pk = lua_topointer(L, -2);
         const void *pv = lua_topointer(L, -1);
+        int extra = 0;
         if ((pk != NULL && lua_rawgetp(L, t, pk) != LUA_TNIL)
                 || (pv != NULL && lua_rawgetp(L, t, pv) != LUA_TNIL))
             luaL_argerror(L, idx, "attempt to dump a recursion table");
-        lonD_pushvalue(D, L, -4, t);
-        lonD_pushvalue(D, L, -3, t);
-        lua_pop(L, 3);
+        extra += (pk != NULL) + (pv != NULL);
+        lonD_pushvalue(D, L, -2-extra, t);
+        lonD_pushvalue(D, L, -1-extra, t);
+        lua_pop(L, extra+1);
     }
     lon_dump_table_end(D);
 }
@@ -394,9 +396,9 @@ static void lonD_pushvalue(lon_Dumper *D, lua_State *L, int idx, int t) {
         break;
     case LUA_TNUMBER:
         if (lua_isinteger(L, idx))
-            lon_dump_integer(D, lua_tointeger(L, idx));
+            lon_dump_integer(D, (lon_Integer)lua_tointeger(L, idx));
         else
-            lon_dump_number(D, lua_tonumber(L, idx));
+            lon_dump_number(D, (lon_Number)lua_tonumber(L, idx));
         break;
     case LUA_TSTRING:
         {
@@ -627,7 +629,7 @@ LON_API char *lon_prepbuffsize(lon_Buffer *B, size_t len) {
             if (newptr == NULL) goto nomem;
             memcpy(newptr, B->buff, B->size);
         }
-        B->buff = newptr;
+        B->buff = (char*)newptr;
         B->capacity = newsize;
     }
     return &B->buff[B->size];
@@ -658,13 +660,13 @@ LON_API int lon_addvfstring(lon_Buffer *B, const char *fmt, va_list l) {
     if ((ptr = lon_prepbuffsize(B, init_size+1)) == NULL)
         return 0;
     va_copy(l_count, l);
-    len = vsnprintf(ptr, init_size, fmt, l_count);
+    len = vsnprintf((char*)ptr, init_size, fmt, l_count);
     va_end(l_count);
     if (len < 0) return 0;
     if (len > init_size) {
         if ((ptr = lon_prepbuffsize(B, len+1)) == NULL)
             return 0;
-        vsnprintf(ptr, len, fmt, l);
+        vsnprintf((char*)ptr, len, fmt, l);
     }
     return B->size += len;
 }
